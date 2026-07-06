@@ -1,16 +1,19 @@
-iimport os
+import os
 import gradio as gr
-from groq import Groq
+from transformers import Pipeline, pipeline
 from duckduckgo_search import DDGS
 import json
 
 # =====================================================================
-# CONFIGURACIÓN DE SEGURIDAD
+# CONFIGURACIÓN DEL CEREBRO (Usamos un modelo directo y libre de trabas)
 # =====================================================================
-# PEGA AQUÍ TU LLAVE DE GROQ ENTRE LAS COMILLAS
-GROQ_API_KEY = "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"
-
-client = Groq(api_key=GROQ_API_KEY)
+print("Cargando cerebro optimizado...")
+# Usamos un modelo que corre de forma nativa e integrada en servidores web
+asistente_ia = pipeline(
+    "text-generation", 
+    model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    max_new_tokens=250
+)
 DB_FILE = "cet_sistema_datos.json"
 
 # =====================================================================
@@ -30,23 +33,9 @@ def buscar_en_internet(consulta):
     return "No se encontraron resultados relevantes."
 
 def evaluar_necesidad_internet(mensaje):
-    prompt_decision = (
-        "Analiza el siguiente mensaje de un usuario. Tu única tarea es decidir si para responder "
-        "óptimamente se requiere información en tiempo real, noticias actuales, datos recientes de internet o el clima. "
-        "Responde ÚNICAMENTE con la palabra 'SI' o la palabra 'NO'. No añadas puntos ni explicaciones.\n"
-        f"Mensaje del usuario: {mensaje}"
-    )
-    try:
-        completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt_decision}],
-            temperature=0.0,
-            max_tokens=2
-        )
-        decision = completion.choices[0].message.content.strip().upper()
-        return "SI" in decision
-    except:
-        return False
+    mensaje_limpio = mensaje.lower()
+    palabras_clave = ["noticias", "hoy", "clima", "tiempo", "actual", "quien es", "buscar", "busca", "internet", "web"]
+    return any(p in mensaje_limpio for p in palabras_clave)
 
 # =====================================================================
 # SISTEMA DE ALMACENAMIENTO MULTI-USUARIO Y MULTI-CHAT
@@ -85,7 +74,7 @@ def obtener_o_crear_usuario(nombre_usuario):
 # =====================================================================
 def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
     if not usuario or not usuario.strip():
-        historial_visual.append({"role": "assistant", "content": "⚠️ Por favor, introduce tu nombre de usuario en la barra lateral primero."})
+        historial_visual.append({"role": "assistant", "content": "⚠️ Por favor, introduce tu nombre de usuario en la barra lateral primero y dale a 'Conectar Sesión'."})
         return historial_visual, "", ""
     
     mensaje_limpio = mensaje.strip()
@@ -97,7 +86,6 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
     usr_key = usuario.strip().lower()
     user_data = db["usuarios"][usr_key]
 
-    # Modo aprendizaje directo
     if mensaje_limpio.lower().startswith("aprende que"):
         conocimiento = mensaje_limpio[12:].strip()
         user_data["memoria"] += f"- {conocimiento}\n"
@@ -118,32 +106,20 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
         historial_visual.append({"role": "assistant", "content": "🌐 *Cet está evaluando la red de forma autónoma...*"})
         datos_internet = buscar_en_internet(mensaje_limpio)
     
-    contexto_sistema = (
-        f"Eres Cet, el asistente analítico de {usuario}. "
-        f"REGLA CRÍTICA: Responde ÚNICAMENTE en español de forma directa, analítica y breve. "
-        f"Recuerdos importantes sobre {usuario}:\n{user_data['memoria']}\n"
+    prompt_sistema = (
+        f"<|system|>\nEres Cet, el asistente analítico de {usuario}. Respondes en español de forma directa y breve. "
+        f"Recuerdos sobre el usuario:\n{user_data['memoria']}\n"
     )
-    
     if datos_internet:
-        contexto_sistema += f"Información en tiempo real de internet:\n{datos_internet}\n"
-    
-    mensajes_api = [{"role": "system", "content": contexto_sistema}]
-    for h in historial_chat[-4:]:
-        if isinstance(h, dict) and "user" in h and "bot" in h:
-            mensajes_api.append({"role": "user", "content": h["user"]})
-            mensajes_api.append({"role": "assistant", "content": h["bot"]})
-    mensajes_api.append({"role": "user", "content": mensaje_limpio})
+        prompt_sistema += f"Información web actual:\n{datos_internet}\n"
+    prompt_sistema += f"</s>\n<|user|>\n{mensaje_limpio}</s>\n<|assistant|>\n"
     
     try:
-        completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=mensajes_api,
-            temperature=0.4,
-            max_tokens=300
-        )
-        respuesta = completion.choices[0].message.content.strip()
+        resultado = asistente_ia(prompt_sistema)
+        texto_completo = resultado[0]['generated_text']
+        respuesta = texto_completo.split("<|assistant|>\n")[-1].strip()
     except Exception as e:
-        respuesta = f"❌ Error en cerebro central: {str(e)}"
+        respuesta = f"❌ Error interno del sistema: {str(e)}"
         
     user_data["chats"][chat_seleccionado].append({"user": mensaje_limpio, "bot": respuesta})
     guardar_db(db)
@@ -203,13 +179,12 @@ def crear_nuevo_chat(nombre_usuario):
     return gr.update(choices=lista_chats, value=nuevo_nombre)
 
 # =====================================================================
-# DISEÑO VISUAL AVANZADO (Cet OS v3.0)
+# DISEÑO VISUAL AVANZADO
 # =====================================================================
-with gr.Blocks(title="Cet OS v3.0") as demo:
+with gr.Blocks() as demo:
     gr.Markdown("# 🤖 CET OS - Panel Avanzado de Control")
     
     with gr.Row():
-        # BARRA LATERAL DE CONTROL (Izquierda)
         with gr.Column(scale=1, min_width=300):
             gr.Markdown("### 👤 Control de Sesión")
             txt_usuario = gr.Textbox(label="Usuario Activo", placeholder="Escribe tu nombre...")
@@ -220,7 +195,6 @@ with gr.Blocks(title="Cet OS v3.0") as demo:
             selector_chat = gr.Dropdown(choices=["Chat 1"], value="Chat 1", label="Seleccionar Conversación")
             btn_nuevo_chat = gr.Button("➕ Crear Nuevo Chat", variant="secondary")
             
-        # PANEL CENTRAL Y MEMORIA (Derecha)
         with gr.Column(scale=3):
             with gr.Tabs():
                 with gr.TabItem("💻 Terminal de Comunicación"):
@@ -230,10 +204,9 @@ with gr.Blocks(title="Cet OS v3.0") as demo:
                         btn_enviar = gr.Button("Enviar", variant="primary", scale=1)
                         
                 with gr.TabItem("🧠 Núcleo de Memoria Persistente"):
-                    gr.Markdown("### 📊 Conocimientos guardados sobre ti por Cet:")
+                    gr.Markdown("### 📊 Conocimientos guardados sobre ti:")
                     txt_memoria_visual = gr.TextArea(label="Base de Datos a Largo Plazo", interactive=False, lines=15)
 
-    # Conexión limpia de eventos
     btn_ingresar.click(conectar_usuario, inputs=[txt_usuario], outputs=[selector_chat, componente_chat, txt_memoria_visual])
     selector_chat.change(cambiar_chat, inputs=[txt_usuario, selector_chat], outputs=[componente_chat])
     btn_nuevo_chat.click(crear_nuevo_chat, inputs=[txt_usuario], outputs=[selector_chat])
