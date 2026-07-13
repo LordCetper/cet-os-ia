@@ -41,7 +41,7 @@ def evaluar_necesidad_internet(mensaje):
     )
     try:
         completion = client.chat.completions.create(
-            model="Meta-Llama-3-8B-Instruct",
+            model="model="llama3-8b",",
             messages=[{"role": "user", "content": prompt_decision}],
             temperature=0.0,
             max_tokens=2
@@ -138,7 +138,7 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
     
     try:
         completion = client.chat.completions.create(
-            model="Meta-Llama-3-8B-Instruct",
+            model="model="llama3-8b",",
             messages=mensajes_api,
             temperature=0.4,
             max_tokens=300
