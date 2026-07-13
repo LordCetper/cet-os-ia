@@ -8,7 +8,7 @@ import json
 # CONFIGURACIÓN DEL CEREBRO ULTRA RÁPIDO DE SAMBANOVA (Modelo 8B)
 # =====================================================================
 # CAMBIA ESTO POR TU LLAVE DE SAMBANOVA CONSERVANDO LAS COMILLAS
-SAMBANOVA_API_KEY = "TU_LLAVE_DE_SAMBANOVA_AQUÍ"
+SAMBANOVA_API_KEY = "b88a22ad-1783-4fbf-8320-ece765577a12"
 
 client = OpenAI(
     base_url="https://api.sambanova.ai/v1",
