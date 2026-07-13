@@ -1,3 +1,4 @@
 gradio
-openai
+requests
 duckduckgo_search
+openai
