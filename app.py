@@ -5,10 +5,10 @@ from duckduckgo_search import DDGS
 import json
 
 # =====================================================================
-# CONFIGURACIÓN DEL CEREBRO ULTRA RÁPIDO DE SAMBANOVA
+# CONFIGURACIÓN DEL CEREBRO ULTRA RÁPIDO DE SAMBANOVA (Modelo 8B)
 # =====================================================================
 # CAMBIA ESTO POR TU LLAVE DE SAMBANOVA CONSERVANDO LAS COMILLAS
-SAMBANOVA_API_KEY = "b88a22ad-1783-4fbf-8320-ece765577a12"
+SAMBANOVA_API_KEY = "TU_LLAVE_DE_SAMBANOVA_AQUÍ"
 
 client = OpenAI(
     base_url="https://api.sambanova.ai/v1",
@@ -41,7 +41,7 @@ def evaluar_necesidad_internet(mensaje):
     )
     try:
         completion = client.chat.completions.create(
-            model="Meta-Llama-3.3-70B-Instruct",
+            model="Meta-Llama-3.1-8B-Instruct",
             messages=[{"role": "user", "content": prompt_decision}],
             temperature=0.0,
             max_tokens=2
@@ -138,7 +138,7 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
     
     try:
         completion = client.chat.completions.create(
-            model="Meta-Llama-3.3-70B-Instruct",
+            model="Meta-Llama-3.1-8B-Instruct",
             messages=mensajes_api,
             temperature=0.4,
             max_tokens=300
