@@ -1,18 +1,18 @@
 import os
 import gradio as gr
-from transformers import Pipeline, pipeline
+from openai import OpenAI
 from duckduckgo_search import DDGS
 import json
 
 # =====================================================================
-# CONFIGURACIÓN DEL CEREBRO (Usamos un modelo directo y libre de trabas)
+# CONFIGURACIÓN DEL CEREBRO ULTRA RÁPIDO DE SAMBANOVA
 # =====================================================================
-print("Cargando cerebro optimizado...")
-# Usamos un modelo que corre de forma nativa e integrada en servidores web
-asistente_ia = pipeline(
-    "text-generation", 
-    model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-    max_new_tokens=250
+# CAMBIA ESTO POR TU LLAVE DE SAMBANOVA CONSERVANDO LAS COMILLAS
+SAMBANOVA_API_KEY = "b88a22ad-1783-4fbf-8320-ece765577a12"
+
+client = OpenAI(
+    base_url="https://api.sambanova.ai/v1",
+    api_key=SAMBANOVA_API_KEY
 )
 DB_FILE = "cet_sistema_datos.json"
 
@@ -33,9 +33,23 @@ def buscar_en_internet(consulta):
     return "No se encontraron resultados relevantes."
 
 def evaluar_necesidad_internet(mensaje):
-    mensaje_limpio = mensaje.lower()
-    palabras_clave = ["noticias", "hoy", "clima", "tiempo", "actual", "quien es", "buscar", "busca", "internet", "web"]
-    return any(p in mensaje_limpio for p in palabras_clave)
+    prompt_decision = (
+        "Analiza el siguiente mensaje de un usuario. Tu única tarea es decidir si para responder "
+        "óptimamente se requiere información en tiempo real, noticias actuales, datos recientes de internet o el clima. "
+        "Responde ÚNICAMENTE con la palabra 'SI' o la palabra 'NO'. No añadas puntos ni explicaciones.\n"
+        f"Mensaje del usuario: {mensaje}"
+    )
+    try:
+        completion = client.chat.completions.create(
+            model="Meta-Llama-3.1-8B-Instruct",
+            messages=[{"role": "user", "content": prompt_decision}],
+            temperature=0.0,
+            max_tokens=2
+        )
+        decision = completion.choices[0].message.content.strip().upper()
+        return "SI" in decision
+    except:
+        return False
 
 # =====================================================================
 # SISTEMA DE ALMACENAMIENTO MULTI-USUARIO Y MULTI-CHAT
@@ -74,7 +88,7 @@ def obtener_o_crear_usuario(nombre_usuario):
 # =====================================================================
 def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
     if not usuario or not usuario.strip():
-        historial_visual.append({"role": "assistant", "content": "⚠️ Por favor, introduce tu nombre de usuario en la barra lateral primero y dale a 'Conectar Sesión'."})
+        historial_visual.append({"role": "assistant", "content": "⚠️ Por favor, introduce tu nombre de usuario en la barra lateral primero."})
         return historial_visual, "", ""
     
     mensaje_limpio = mensaje.strip()
@@ -106,20 +120,32 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
         historial_visual.append({"role": "assistant", "content": "🌐 *Cet está evaluando la red de forma autónoma...*"})
         datos_internet = buscar_en_internet(mensaje_limpio)
     
-    prompt_sistema = (
-        f"<|system|>\nEres Cet, el asistente analítico de {usuario}. Respondes en español de forma directa y breve. "
-        f"Recuerdos sobre el usuario:\n{user_data['memoria']}\n"
+    contexto_sistema = (
+        f"Eres Cet, el asistente analítico de {usuario}. "
+        f"REGLA CRÍTICA: Responde ÚNICAMENTE en español de forma directa, analítica y breve. "
+        f"Recuerdos importantes sobre {usuario}:\n{user_data['memoria']}\n"
     )
+    
     if datos_internet:
-        prompt_sistema += f"Información web actual:\n{datos_internet}\n"
-    prompt_sistema += f"</s>\n<|user|>\n{mensaje_limpio}</s>\n<|assistant|>\n"
+        contexto_sistema += f"Información en tiempo real de internet:\n{datos_internet}\n"
+    
+    mensajes_api = [{"role": "system", "content": contexto_sistema}]
+    for h in historial_chat[-4:]:
+        if isinstance(h, dict) and "user" in h and "bot" in h:
+            mensajes_api.append({"role": "user", "content": h["user"]})
+            mensajes_api.append({"role": "assistant", "content": h["bot"]})
+    mensajes_api.append({"role": "user", "content": mensaje_limpio})
     
     try:
-        resultado = asistente_ia(prompt_sistema)
-        texto_completo = resultado[0]['generated_text']
-        respuesta = texto_completo.split("<|assistant|>\n")[-1].strip()
+        completion = client.chat.completions.create(
+            model="Meta-Llama-3.1-8B-Instruct",
+            messages=mensajes_api,
+            temperature=0.4,
+            max_tokens=300
+        )
+        respuesta = completion.choices[0].message.content.strip()
     except Exception as e:
-        respuesta = f"❌ Error interno del sistema: {str(e)}"
+        respuesta = f"❌ Error en cerebro central: {str(e)}"
         
     user_data["chats"][chat_seleccionado].append({"user": mensaje_limpio, "bot": respuesta})
     guardar_db(db)
@@ -134,7 +160,7 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
 
 def conectar_usuario(nombre_usuario):
     if not nombre_usuario or not nombre_usuario.strip():
-        return gr.update(choices=["Chat 1"], value="Chat 1"), [], "Historial de aprendizaje vacío."
+        return gr.update(choices=["Chat 1"], value="Chat 1"), []
     
     datos = obtener_o_crear_usuario(nombre_usuario)
     lista_chats = list(datos["chats"].keys())
@@ -179,7 +205,7 @@ def crear_nuevo_chat(nombre_usuario):
     return gr.update(choices=lista_chats, value=nuevo_nombre)
 
 # =====================================================================
-# DISEÑO VISUAL AVANZADO
+# DISEÑO VISUAL AVANZADO (Cet OS v3.0)
 # =====================================================================
 with gr.Blocks() as demo:
     gr.Markdown("# 🤖 CET OS - Panel Avanzado de Control")
