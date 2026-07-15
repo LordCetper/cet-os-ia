@@ -37,13 +37,13 @@ def consultar_sambanova(mensajes, max_tokens=300, temperature=0.4):
 # =====================================================================
 def buscar_en_internet(consulta):
     try:
-        with DDGS() as ddgs:
-            resultados = [r for r in ddgs.text(consulta, max_results=3)]
-            if resultados:
-                texto_resultados = ""
-                for i, r in enumerate(resultados):
-                    texto_resultados += f"[{i+1}] Fuente: {r['title']}\nContenido: {r['body']}\n\n"
-                return texto_resultados
+        ddgs = DDGS()
+        resultados = list(ddgs.text(consulta, max_results=3))
+        if resultados:
+            texto_resultados = ""
+            for i, r in enumerate(resultados):
+                texto_resultados += f"[{i+1}] Fuente: {r['title']}\nContenido: {r['body']}\n\n"
+            return texto_resultados
     except Exception as e:
         return f"Error al buscar en internet: {str(e)}"
     return "No se encontraron resultados relevantes."
@@ -109,7 +109,7 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
         historial_visual = []
         
     if not usuario or not usuario.strip():
-        historial_visual.append((None, "⚠️ Por favor, introduce tu nombre de usuario en la barra lateral primero y haz clic en 'Conectar Sesión'."))
+        historial_visual.append([None, "⚠️ Por favor, introduce tu nombre de usuario en la barra lateral primero y haz clic en 'Conectar Sesión'."])
         return historial_visual, "", "Por favor inicia sesión para ver tu núcleo de memoria."
     
     mensaje_limpio = mensaje.strip()
@@ -125,7 +125,7 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
         conocimiento = mensaje_limpio[12:].strip()
         user_data["memoria"] += f"- {conocimiento}\n"
         guardar_db(db)
-        historial_visual.append((mensaje_limpio, f"💾 [Cet]: Registrado en tu memoria a largo plazo."))
+        historial_visual.append([mensaje_limpio, f"💾 [Cet]: Registrado en tu memoria a largo plazo."])
         return historial_visual, "", user_data["memoria"]
 
     if chat_seleccionado not in user_data["chats"]:
@@ -136,7 +136,7 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
     datos_internet = ""
     
     if necesita_web:
-        historial_visual.append((mensaje_limpio, "🌐 *Cet está evaluando la red de forma autónoma...*"))
+        historial_visual.append([mensaje_limpio, "🌐 *Cet está evaluando la red de forma autónoma...*"])
         datos_internet = buscar_en_internet(mensaje_limpio)
     
     contexto_sistema = (
@@ -161,9 +161,9 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
     guardar_db(db)
     
     if not necesita_web:
-        historial_visual.append((mensaje_limpio, respuesta))
+        historial_visual.append([mensaje_limpio, respuesta])
     else:
-        historial_visual[-1] = (mensaje_limpio, respuesta)
+        historial_visual[-1] = [mensaje_limpio, respuesta]
         
     return historial_visual, "", user_data["memoria"]
 
@@ -178,7 +178,7 @@ def conectar_usuario(nombre_usuario):
     primer_chat = lista_chats[0]
     for msg in datos["chats"][primer_chat]:
         if isinstance(msg, dict) and "user" in msg and "bot" in msg:
-            historial_visual.append((msg["user"], msg["bot"]))
+            historial_visual.append([msg["user"], msg["bot"]])
             
     return gr.update(choices=lista_chats, value=primer_chat), historial_visual, datos["memoria"]
 
@@ -194,7 +194,7 @@ def cambiar_chat(nombre_usuario, chat_seleccionado):
     historial_visual = []
     for msg in chat_data:
         if isinstance(msg, dict) and "user" in msg and "bot" in msg:
-            historial_visual.append((msg["user"], msg["bot"]))
+            historial_visual.append([msg["user"], msg["bot"]])
     return historial_visual
 
 def crear_nuevo_chat(nombre_usuario):
@@ -232,7 +232,7 @@ with gr.Blocks() as demo:
         with gr.Column(scale=3):
             with gr.Tabs():
                 with gr.TabItem("💻 Terminal de Comunicación"):
-                    componente_chat = gr.Chatbot(label="Mensajes con Cet") # ¡AQUÍ SE CORRIGIÓ EL ERROR!
+                    componente_chat = gr.Chatbot(label="Mensajes con Cet")
                     with gr.Row():
                         txt_mensaje = gr.Textbox(placeholder="Escribe a Cet aquí...", label=False, scale=4)
                         btn_enviar = gr.Button("Enviar", variant="primary", scale=1)
