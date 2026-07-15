@@ -17,7 +17,7 @@ def consultar_sambanova(mensajes, max_tokens=300, temperature=0.4):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "Meta-Llama-3.2-3B-Instruct",  # <-- ¡Modelo actualizado y activo!
+        "model": "Meta-Llama-3.2-3B-Instruct",
         "messages": mensajes,
         "temperature": temperature,
         "max_tokens": max_tokens
@@ -108,7 +108,7 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
         historial_visual = []
         
     if not usuario or not usuario.strip():
-        historial_visual.append([None, "⚠️ Por favor, introduce tu nombre de usuario en la barra lateral primero y haz clic en 'Conectar Sesión'."])
+        historial_visual.append({"role": "assistant", "content": "⚠️ Por favor, introduce tu nombre de usuario en la barra lateral primero y haz clic en 'Conectar Sesión'."})
         return historial_visual, "", "Por favor inicia sesión para ver tu núcleo de memoria."
     
     mensaje_limpio = mensaje.strip()
@@ -124,7 +124,8 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
         conocimiento = mensaje_limpio[12:].strip()
         user_data["memoria"] += f"- {conocimiento}\n"
         guardar_db(db)
-        historial_visual.append([mensaje_limpio, f"💾 [Cet]: Registrado en tu memoria a largo plazo."])
+        historial_visual.append({"role": "user", "content": mensaje_limpio})
+        historial_visual.append({"role": "assistant", "content": f"💾 [Cet]: Registrado en tu memoria a largo plazo."})
         return historial_visual, "", user_data["memoria"]
 
     if chat_seleccionado not in user_data["chats"]:
@@ -135,7 +136,8 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
     datos_internet = ""
     
     if necesita_web:
-        historial_visual.append([mensaje_limpio, "🌐 *Cet está evaluando la red de forma autónoma...*"])
+        historial_visual.append({"role": "user", "content": mensaje_limpio})
+        historial_visual.append({"role": "assistant", "content": "🌐 *Cet está evaluando la red de forma autónoma...*"})
         datos_internet = buscar_en_internet(mensaje_limpio)
     
     contexto_sistema = (
@@ -160,9 +162,10 @@ def procesar_chat(usuario, chat_seleccionado, mensaje, historial_visual):
     guardar_db(db)
     
     if not necesita_web:
-        historial_visual.append([mensaje_limpio, respuesta])
+        historial_visual.append({"role": "user", "content": mensaje_limpio})
+        historial_visual.append({"role": "assistant", "content": respuesta})
     else:
-        historial_visual[-1] = [mensaje_limpio, respuesta]
+        historial_visual[-1] = {"role": "assistant", "content": respuesta}
         
     return historial_visual, "", user_data["memoria"]
 
@@ -177,7 +180,8 @@ def conectar_usuario(nombre_usuario):
     primer_chat = lista_chats[0]
     for msg in datos["chats"][primer_chat]:
         if isinstance(msg, dict) and "user" in msg and "bot" in msg:
-            historial_visual.append([msg["user"], msg["bot"]])
+            historial_visual.append({"role": "user", "content": msg["user"]})
+            historial_visual.append({"role": "assistant", "content": msg["bot"]})
             
     return gr.update(choices=lista_chats, value=primer_chat), historial_visual, datos["memoria"]
 
@@ -193,7 +197,8 @@ def cambiar_chat(nombre_usuario, chat_seleccionado):
     historial_visual = []
     for msg in chat_data:
         if isinstance(msg, dict) and "user" in msg and "bot" in msg:
-            historial_visual.append([msg["user"], msg["bot"]])
+            historial_visual.append({"role": "user", "content": msg["user"]})
+            historial_visual.append({"role": "assistant", "content": msg["bot"]})
     return historial_visual
 
 def crear_nuevo_chat(nombre_usuario):
@@ -231,7 +236,8 @@ with gr.Blocks() as demo:
         with gr.Column(scale=3):
             with gr.Tabs():
                 with gr.TabItem("💻 Terminal de Comunicación"):
-                    componente_chat = gr.Chatbot(label="Mensajes con Cet")
+                    # ¡Añadido el type="messages" para cumplir con la regla de Gradio 5!
+                    componente_chat = gr.Chatbot(label="Mensajes con Cet", type="messages")
                     with gr.Row():
                         txt_mensaje = gr.Textbox(placeholder="Escribe a Cet aquí...", label=False, scale=4)
                         btn_enviar = gr.Button("Enviar", variant="primary", scale=1)
