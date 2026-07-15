@@ -236,8 +236,8 @@ with gr.Blocks() as demo:
         with gr.Column(scale=3):
             with gr.Tabs():
                 with gr.TabItem("💻 Terminal de Comunicación"):
-                    # ¡Añadido el type="messages" para cumplir con la regla de Gradio 5!
-                    componente_chat = gr.Chatbot(label="Mensajes con Cet", type="messages")
+                    # ¡AQUÍ ESTÁ LA MAGIA! Sin parámetro type, pero con formato de diccionarios.
+                    componente_chat = gr.Chatbot(label="Mensajes con Cet")
                     with gr.Row():
                         txt_mensaje = gr.Textbox(placeholder="Escribe a Cet aquí...", label=False, scale=4)
                         btn_enviar = gr.Button("Enviar", variant="primary", scale=1)
